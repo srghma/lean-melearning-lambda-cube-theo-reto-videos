@@ -4,7 +4,7 @@
 // ============================================================
 
 #import "common.typ": *
-#import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
+#import "@preview/fletcher:0.5.8" as fletcher: diagram, edge, node
 
 #show: setup
 
@@ -61,9 +61,11 @@
     // Left column: Agenda items
     stack(
       spacing: 1.15em,
-      ..agenda.enumerate().map(((i, item)) => text(size: 1.15em)[
-        #(i + 1).#h(0.8em)#item
-      ])
+      ..agenda
+        .enumerate()
+        .map(((i, item)) => text(size: 1.15em)[
+          #(i + 1).#h(0.8em)#item
+        ]),
     ),
 
     // Right column: Lambda Cube using Fletcher
@@ -89,7 +91,11 @@
         // Highlighted green relationships originating from λ→
         edge(<base>, <l2>, "->", stroke: 1.8pt + green),
         edge(<base>, <lp>, "->", stroke: 1.8pt + green),
-        edge(<base>, <lw-low>, "->", stroke: (paint: green, thickness: 1.8pt, dash: "dashed")),
+        edge(<base>, <lw-low>, "->", stroke: (
+          paint: green,
+          thickness: 1.8pt,
+          dash: "dashed",
+        )),
 
         // Front face remaining edges
         edge(<l2>, <lp2>, "->", stroke: 1pt + grey),
@@ -101,7 +107,11 @@
         edge(<lp>, <lpw>, "->", stroke: 1pt + grey),
 
         // Back face remaining edges
-        edge(<lw-low>, <lpw>, "->", stroke: (paint: grey, thickness: 1pt, dash: "dashed")),
+        edge(<lw-low>, <lpw>, "->", stroke: (
+          paint: grey,
+          thickness: 1pt,
+          dash: "dashed",
+        )),
         edge(<lw-top>, <lc>, "->", stroke: 1pt + grey),
         edge(<lpw>, <lc>, "->", stroke: 1pt + grey),
       )
@@ -115,7 +125,7 @@
 
 #slide(title: [(Re-)Sources])[
   #align(horizon)[
-    #set list(spacing: 1.3em, marker: ([•]))
+    #set list(spacing: 1.3em, marker: [•])
     #text(size: 1.05em)[
       - Nederpelt, R., Geuvers, H. (2014). _Type Theory and Formal Proof: An Introduction._ Cambridge University Press.
       - Barendregt, H. P. (1992). _Lambda Calculi with Types._

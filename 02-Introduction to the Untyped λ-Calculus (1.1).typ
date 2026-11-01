@@ -92,8 +92,15 @@
       align(center)[
         #stack(
           spacing: 0.3em,
-          rect(stroke: 1.5pt + rgb("#D94848"), radius: 1em, inset: (x: 0.7em, y: 0.35em))[
-            #text(size: 1.1em, fill: rgb("#D94848"), weight: "bold")[abstraction]
+          rect(stroke: 1.5pt + rgb("#D94848"), radius: 1em, inset: (
+            x: 0.7em,
+            y: 0.35em,
+          ))[
+            #text(
+              size: 1.1em,
+              fill: rgb("#D94848"),
+              weight: "bold",
+            )[abstraction]
           ],
           text(size: 1.2em, fill: rgb("#D94848"))[$arrow.b$],
         )
@@ -139,8 +146,15 @@
       align(center)[
         #stack(
           spacing: 0.3em,
-          rect(stroke: 1.5pt + rgb("#D94848"), radius: 1em, inset: (x: 0.7em, y: 0.35em))[
-            #text(size: 1.1em, fill: rgb("#D94848"), weight: "bold")[application]
+          rect(stroke: 1.5pt + rgb("#D94848"), radius: 1em, inset: (
+            x: 0.7em,
+            y: 0.35em,
+          ))[
+            #text(
+              size: 1.1em,
+              fill: rgb("#D94848"),
+              weight: "bold",
+            )[application]
           ],
           text(size: 1.2em, fill: rgb("#D94848"))[$arrow.b$],
         )
@@ -177,7 +191,9 @@
       text(size: 1.1em)[If $M, N in Lambda$, then $(M N) in Lambda$.],
 
       text(size: 1.1em, weight: "bold")[Abstraction],
-      text(size: 1.1em)[If $x in V$ and $M in Lambda$, then $(lambda x . M) in Lambda$.],
+      text(
+        size: 1.1em,
+      )[If $x in V$ and $M in Lambda$, then $(lambda x . M) in Lambda$.],
     ),
   )
 
@@ -336,10 +352,14 @@
       text(size: 1.1em)[$upright(F V)(x) = {x}$],
 
       text(size: 1.1em, weight: "bold")[Application],
-      text(size: 1.1em)[$upright(F V)(M N) = upright(F V)(M) union upright(F V)(N)$],
+      text(
+        size: 1.1em,
+      )[$upright(F V)(M N) = upright(F V)(M) union upright(F V)(N)$],
 
       text(size: 1.1em, weight: "bold")[Abstraction],
-      text(size: 1.1em)[$upright(F V)(lambda x . M) = upright(F V)(M) without {x}$],
+      text(
+        size: 1.1em,
+      )[$upright(F V)(lambda x . M) = upright(F V)(M) without {x}$],
     ),
   )
 
@@ -356,8 +376,10 @@
 
     align(left)[
       #text(size: 1.35em)[
-        $ upright(F V)(lambda x . x y) &= upright(F V)(x y) without {x} \
-        &= {x, y} without {x} = {y} $
+        $
+          upright(F V)(lambda x . x y) & = upright(F V)(x y) without {x} \
+                                       & = {x, y} without {x} = {y}
+        $
       ]
     ],
 
@@ -379,8 +401,10 @@
 
     align(left)[
       #text(size: 1.35em)[
-        $ upright(F V)(x (lambda x . x y)) &= upright(F V)(x) union upright(F V)(lambda x . x y) \
-        &= {x} union {y} = {x, y} $
+        $
+          upright(F V)(x (lambda x . x y)) &= upright(F V)(x) union upright(F V)(lambda x . x y) \
+          &= {x} union {y} = {x, y}
+        $
       ]
     ],
 

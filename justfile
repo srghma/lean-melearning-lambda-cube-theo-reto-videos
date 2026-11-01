@@ -1,15 +1,23 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-# Default recipe
 default: build
 
-# Compile every non-empty .typ file into a PDF
+# Format and compile outdated PDFs
 build:
     #!/usr/bin/env bash
     find . -maxdepth 1 -type f -name '*.typ' -size +0c -print0 |
         while IFS= read -r -d '' file; do
-            echo "==> Compiling: $file"
-            typst compile "$file" "${file%.typ}.pdf"
+            pdf="${file%.typ}.pdf"
+
+            echo "==> Formatting: $file"
+            typstyle -i "$file"
+
+            if [[ ! -f "$pdf" || "$file" -nt "$pdf" ]]; then
+                echo "==> Compiling: $file"
+                typst compile "$file" "$pdf"
+            else
+                echo "==> Up to date: $pdf"
+            fi
         done
 
 # Remove generated PDFs
