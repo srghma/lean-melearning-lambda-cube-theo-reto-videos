@@ -1,0 +1,80 @@
+/-
+  Toy grammar for System λP (Dependent Types / Logical Framework LF).
+  Axes supported:
+  - (*, *): terms depending on terms
+  - (*, □): types depending on terms (dependent function spaces Πx:A. B and type families indexed by terms)
+
+  Lecture references:
+  - Lecture 11: "The Extension λP (Lambda P) (5)",
+    Slide 2: The Missing Piece (Types depending on Terms)
+    Slide 3: Types depending on terms (vectors indexed by length, type families)
+    Slide 4: Pi-types (Πx:A. B)
+    Slide 7: Formation rule (*, □)
+    Slide 8: Application rule: B[x := N]
+    Slide 9: Abstraction rule
+    Slide 10: Derivation Rules for λP
+  - Lecture 12: "The Lambda Cube and λC (6)",
+    Slide 2: Vertex λP
+    Slide 3 & 5 (a): λP : (*, *), (*, □)
+-/
+
+import LambdaCube.Common.Syntax
+import LambdaCube.Common.Substitution
+import LambdaCube.Common.Context
+
+set_option genSizeOf false
+
+namespace LambdaCube.LambdaP
+
+/--
+  1. Kinds in λP:
+  - `star`: the sort `*` of types
+  - `pi`: dependent kind `Π (x : Term n), Kind (n + 1)` (type families indexed by terms, e.g. `Nat → *`)
+
+  Lecture Reference:
+  - Lecture 11, Slide 3 & 7: Type families A → * and (form) rule for (*, □)
+-/
+inductive Kind : Nat → Type where
+  | star {n : Nat} : Kind n
+  | pi   {n : Nat} (A : Kind n) (B : Kind (n + 1)) : Kind n
+  deriving Repr
+
+/--
+  2. Types and Type Families in λP (Types depending on terms):
+  Parameterized by the number of term variables `n : Nat`.
+  - `base`: a base type constant
+  - `pi`: dependent product `Π (x : Ty n), Ty (n + 1)` (where codomain can depend on term variable x)
+  - `famApp`: type family applied to a term argument: `F t`
+
+  Lecture Reference:
+  - Lecture 11, Slide 3 & 4: Types depending on terms
+-/
+inductive Ty : Nat → Type where
+  | base {n : Nat} : Ty n
+  | pi   {n : Nat} (dom : Ty n) (cod : Ty (n + 1)) : Ty n
+  | famApp {n : Nat} (F : Fin n) (arg : Fin n) : Ty n
+  deriving Repr
+
+/--
+  3. Terms in λP:
+  Parameterized by term variable scope `n : Nat` with de Bruijn variables `Fin n`.
+  Supports term abstraction and application.
+
+  Lecture Reference:
+  - Lecture 11, Slide 8, 9, 10: λP terms, abstraction, and application
+-/
+inductive Term : Nat → Type where
+  | var {n : Nat} (i : Fin n) : Term n
+  | lam {n : Nat} (dom : Ty n) (body : Term (n + 1)) : Term n
+  | app {n : Nat} (f arg : Term n) : Term n
+  deriving Repr
+
+/-- Arrow type abbreviation for non-dependent functions in λP. -/
+def arrow {n : Nat} (A : Ty n) (liftB : Ty (n + 1)) : Ty n :=
+  Ty.pi A liftB
+
+/-- Identity term on type `A`: `λ x:A. x` -/
+def idTerm {n : Nat} (A : Ty n) : Term n :=
+  Term.lam A (Term.var ⟨0, Nat.succ_pos n⟩)
+
+end LambdaCube.LambdaP

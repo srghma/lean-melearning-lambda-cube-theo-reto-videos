@@ -1,0 +1,223 @@
+/-!
+  # Order-Bounded Kinds and Intrinsically Kinded Type Syntax
+  Fixes dependent elimination and metavariable issues in `Ty N`.
+-/
+
+-- ====================================================================
+-- 1. Kinds Indexed by Order
+-- ====================================================================
+
+/-- Kind of order `n`.
+    Order 0: ★
+    Order 1: ★ ⇒ₖ ★
+    Order 2: (★ ⇒ₖ ★) ⇒ₖ ★ ⇒ₖ ★ (Church Nat)
+    Order 3: Nat ⇒ₖ Nat ⇒ₖ Nat (Church Add/Mul) -/
+inductive Kind : Nat → Type where
+  | star  : Kind 0
+  | arrow {n m : Nat} : Kind n → Kind m → Kind (max (n + 1) m)
+  deriving Repr -- Note: DecidableEq omitted to avoid refuting `0 = max (n+1) m`
+
+notation "★" => Kind.star
+infixr:70 " ⇒ₖ " => Kind.arrow
+
+abbrev KindSig := Σ n, Kind n
+abbrev KindCtx := List KindSig
+
+-- Standard Kind Signatures
+def kStar : KindSig := ⟨0, ★⟩
+def kOp   : KindSig := ⟨1, ★ ⇒ₖ ★⟩
+def kNat  : KindSig := ⟨2, (★ ⇒ₖ ★) ⇒ₖ (★ ⇒ₖ ★)⟩
+def kBinOp : KindSig :=
+  ⟨3, ((★ ⇒ₖ ★) ⇒ₖ (★ ⇒ₖ ★)) ⇒ₖ (((★ ⇒ₖ ★) ⇒ₖ (★ ⇒ₖ ★)) ⇒ₖ ((★ ⇒ₖ ★) ⇒ₖ (★ ⇒ₖ ★)))⟩
+
+-- ====================================================================
+-- 2. Typed Constructor Variables (TVar)
+-- ====================================================================
+
+inductive TVar : KindCtx → KindSig → Type where
+  | head {Δ K}   : TVar (K :: Δ) K
+  | tail {Δ K S} : TVar Δ K → TVar (S :: Δ) K
+
+-- ====================================================================
+-- 3. Order-Bounded Type Syntax: `Ty N`
+-- ====================================================================
+
+inductive Ty (N : Nat) : KindCtx → KindSig → Type where
+  | var   {Δ K} (v : TVar Δ K) : Ty N Δ K
+  | arrow {Δ} (s t : Ty N Δ ⟨0, ★⟩) : Ty N Δ ⟨0, ★⟩
+  | abs   {Δ n m} {K₁ : Kind n} {K₂ : Kind m}
+          (h : max (n + 1) m ≤ N)
+          (body : Ty N (⟨n, K₁⟩ :: Δ) ⟨m, K₂⟩) : Ty N Δ ⟨max (n + 1) m, K₁ ⇒ₖ K₂⟩
+  | app   {Δ n m} {K₁ : Kind n} {K₂ : Kind m}
+          (f : Ty N Δ ⟨max (n + 1) m, K₁ ⇒ₖ K₂⟩) (arg : Ty N Δ ⟨n, K₁⟩) : Ty N Δ ⟨m, K₂⟩
+
+infixr:70 " ⇒ₜ " => Ty.arrow
+infixl:70 " ⬝ₜ " => Ty.app
+
+/-- Smart constructor for abstraction:
+    By taking `K₁` explicitly, `n` and `m` are fully determined from `body`,
+    allowing `omega` to run without unassigned metavariables. -/
+def tyAbs {N : Nat} {Δ : KindCtx} (K₁ : KindSig) {m : Nat} {K₂ : Kind m}
+    (body : Ty N (K₁ :: Δ) ⟨m, K₂⟩)
+    (h : max (K₁.1 + 1) m ≤ N := by omega) : Ty N Δ ⟨max (K₁.1 + 1) m, K₁.2 ⇒ₖ K₂⟩ :=
+  Ty.abs h body
+
+-- ====================================================================
+-- 4. Renaming and Substitution
+-- ====================================================================
+
+def TyRename (Δ Δ' : KindCtx) := ∀ {K : KindSig}, TVar Δ K → TVar Δ' K
+
+def liftTyRename {Δ Δ' : KindCtx} {S : KindSig} (ρ : TyRename Δ Δ') :
+    TyRename (S :: Δ) (S :: Δ')
+  | _, TVar.head   => TVar.head
+  | _, TVar.tail v => TVar.tail (ρ v)
+
+def tyRename {N : Nat} {Δ Δ' : KindCtx} (ρ : TyRename Δ Δ') :
+    {K : KindSig} → Ty N Δ K → Ty N Δ' K
+  | _, Ty.var v      => Ty.var (ρ v)
+  | _, Ty.arrow s t  => Ty.arrow (tyRename ρ s) (tyRename ρ t)
+  | _, Ty.abs h body => Ty.abs h (tyRename (liftTyRename ρ) body)
+  | _, Ty.app f arg  => Ty.app (tyRename ρ f) (tyRename ρ arg)
+
+def tyShift {N : Nat} {Δ : KindCtx} {S : KindSig} :
+    {K : KindSig} → Ty N Δ K → Ty N (S :: Δ) K :=
+  tyRename TVar.tail
+
+def TySubst (N : Nat) (Δ Δ' : KindCtx) :=
+  ∀ {K : KindSig}, TVar Δ K → Ty N Δ' K
+
+def liftTySubst {N : Nat} {Δ Δ' : KindCtx} {S : KindSig}
+    (σ : TySubst N Δ Δ') : TySubst N (S :: Δ) (S :: Δ')
+  | _, TVar.head   => Ty.var TVar.head
+  | _, TVar.tail v => tyShift (σ v)
+
+def tySubst {N : Nat} {Δ Δ' : KindCtx} (σ : TySubst N Δ Δ') :
+    {K : KindSig} → Ty N Δ K → Ty N Δ' K
+  | _, Ty.var v      => σ v
+  | _, Ty.arrow s t  => Ty.arrow (tySubst σ s) (tySubst σ t)
+  | _, Ty.abs h body => Ty.abs h (tySubst (liftTySubst σ) body)
+  | _, Ty.app f arg  => Ty.app (tySubst σ f) (tySubst σ arg)
+
+def tySubstHead {N : Nat} {Δ : KindCtx} {S : KindSig}
+    (arg : Ty N Δ S) : TySubst N (S :: Δ) Δ
+  | _, TVar.head   => arg
+  | _, TVar.tail v => Ty.var v
+
+def tyInstantiate {N : Nat} {Δ : KindCtx} {n m : Nat}
+    {K₁ : Kind n} {K₂ : Kind m}
+    (body : Ty N (⟨n, K₁⟩ :: Δ) ⟨m, K₂⟩)
+    (arg : Ty N Δ ⟨n, K₁⟩) : Ty N Δ ⟨m, K₂⟩ :=
+  tySubst (tySubstHead arg) body
+
+-- ====================================================================
+-- 5. Church Numerals & Polynomial Operations
+-- ====================================================================
+
+/-- Iterated application: `f^n(x)`. -/
+def churchIter (N : Nat) {Δ : KindCtx} (n : Nat)
+    (f : Ty N Δ kOp) (x : Ty N Δ kStar) : Ty N Δ kStar :=
+  match n with
+  | 0     => x
+  | n + 1 => f ⬝ₜ churchIter N n f x
+
+/-- Closed Church numeral: `ƛ f. ƛ x. f^n x`.
+    Requires `N ≥ 2` because `kNat` is Order 2. -/
+def church (N : Nat) (n : Nat) {Δ : KindCtx} (hN : 2 ≤ N := by omega) :
+    Ty N Δ kNat :=
+  tyAbs kOp (
+    tyAbs kStar (
+      churchIter N n (Ty.var (TVar.tail TVar.head)) (Ty.var TVar.head)
+    )
+  )
+
+/-- Church addition: `ƛ m. ƛ n. ƛ f. ƛ x. m f (n f x)`.
+    Requires `N ≥ 3` because `kBinOp` is Order 3. -/
+def add (N : Nat) {Δ : KindCtx} (hN : 3 ≤ N := by omega) :
+    Ty N Δ kBinOp :=
+  tyAbs kNat (
+    tyAbs kNat (
+      tyAbs kOp (
+        tyAbs kStar (
+          let m : Ty N _ kNat  := Ty.var (TVar.tail (TVar.tail (TVar.tail TVar.head)))
+          let n : Ty N _ kNat  := Ty.var (TVar.tail (TVar.tail TVar.head))
+          let f : Ty N _ kOp   := Ty.var (TVar.tail TVar.head)
+          let x : Ty N _ kStar := Ty.var TVar.head
+          (m ⬝ₜ f) ⬝ₜ ((n ⬝ₜ f) ⬝ₜ x)
+        )
+      )
+    )
+  )
+
+/-- Church multiplication: `ƛ m. ƛ n. ƛ f. ƛ x. m (n f) x`.
+    Requires `N ≥ 3`. -/
+def mul (N : Nat) {Δ : KindCtx} (hN : 3 ≤ N := by omega) :
+    Ty N Δ kBinOp :=
+  tyAbs kNat (
+    tyAbs kNat (
+      tyAbs kOp (
+        tyAbs kStar (
+          let m : Ty N _ kNat  := Ty.var (TVar.tail (TVar.tail (TVar.tail TVar.head)))
+          let n : Ty N _ kNat  := Ty.var (TVar.tail (TVar.tail TVar.head))
+          let f : Ty N _ kOp   := Ty.var (TVar.tail TVar.head)
+          let x : Ty N _ kStar := Ty.var TVar.head
+          (m ⬝ₜ (n ⬝ₜ f)) ⬝ₜ x
+        )
+      )
+    )
+  )
+
+-- ====================================================================
+-- 6. Denotational Semantics & Definitional Equivalence
+-- ====================================================================
+
+/-- Semantics of kinds: match on `_` instead of `0` to prevent dependent equations. -/
+def SemKind : {n : Nat} → Kind n → Type
+  | _, Kind.star => Nat
+  | _, Kind.arrow K₁ K₂ => SemKind K₁ → SemKind K₂
+
+abbrev SemKindSig (K : KindSig) : Type := SemKind K.2
+
+def SemKindCtx : KindCtx → Type
+  | [] => Unit
+  | K :: Δ => SemKindSig K × SemKindCtx Δ
+
+def evalVar : {Δ : KindCtx} → {K : KindSig} → TVar Δ K → SemKindCtx Δ → SemKindSig K
+  | _ :: _, _, TVar.head,   (v, _)   => v
+  | _ :: _, _, TVar.tail t, (_, env) => evalVar t env
+
+def eval {N : Nat} : {Δ : KindCtx} → {K : KindSig} → Ty N Δ K → SemKindCtx Δ → SemKindSig K
+  | _, _, Ty.var v,      env => evalVar v env
+  | _, _, Ty.arrow s t,  env => eval s env + eval t env
+  | _, _, Ty.abs _ body, env => fun x => eval body (x, env)
+  | _, _, Ty.app f arg,  env => (eval f env) (eval arg env)
+
+/-- Extract concrete Nat from a Church numeral. -/
+def toNat (num : SemKindSig kNat) : Nat :=
+  num (fun n => n + 1) 0
+
+-- Application helpers
+def applyAdd {N} (hN : 3 ≤ N) (m n : Ty N [] kNat) : Ty N [] kNat :=
+  (add N hN ⬝ₜ m) ⬝ₜ n
+
+def applyMul {N} (hN : 3 ≤ N) (m n : Ty N [] kNat) : Ty N [] kNat :=
+  (mul N hN ⬝ₜ m) ⬝ₜ n
+
+-- ====================================================================
+-- 7. Verification in Kernel via `rfl`
+-- ====================================================================
+
+-- 2 + 3 = 5
+theorem test_add : toNat (eval (applyAdd (by omega) (church 3 2) (church 3 3)) ()) = 5 := by
+  rfl
+
+-- 4 * 5 = 20
+theorem test_mul : toNat (eval (applyMul (by omega) (church 3 4) (church 3 5)) ()) = 20 := by
+  rfl
+
+/-- Polynomial P(x) = 2x + 1 evaluated at x = 3: 2(3) + 1 = 7 -/
+def poly2x_plus_1 (x : Ty 3 [] kNat) : Ty 3 [] kNat :=
+  applyAdd (by omega) (applyMul (by omega) (church 3 2) x) (church 3 1)
+
+theorem test_poly : toNat (eval (poly2x_plus_1 (church 3 3)) ()) = 7 := by
+  rfl

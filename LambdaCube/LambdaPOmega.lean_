@@ -1,0 +1,79 @@
+/-
+  Toy grammar for System λP_ω_ (Dependent Types with Type Operators).
+  Axes supported:
+  - (*, *): terms depending on terms
+  - (□, □): types depending on types (type operators from λ_ω_)
+  - (*, □): types depending on terms (dependent types from λP)
+
+  Lecture references:
+  - Lecture 10: "The Extension λ_ω_ (Lambda Weak Omega)"
+  - Lecture 11: "The Extension λP (Lambda P) (5)"
+  - Lecture 12: "The Lambda Cube and λC (6)",
+    Slide 2: The λ-Cube diagram (vertex λP_ω_)
+    Slide 3: Table of Dependencies (λP_ω_ : (*, *), (□, □), (*, □))
+    Slide 10: The Lambda-Cube systems summary
+-/
+
+import LambdaCube.Common.Syntax
+import LambdaCube.Common.Substitution
+import LambdaCube.Common.Context
+
+set_option genSizeOf false
+
+namespace LambdaCube.LambdaPOmega
+
+/--
+  1. Kinds in λP_ω_:
+  Since types can depend on terms, kinds can be dependent on terms:
+  - `star`: the sort `*`
+  - `karrow`: kind arrow `K₁ → K₂` for type constructors
+  - `pi`: dependent kind over terms `Π (x : Term n), Kind (n + 1)`
+
+  Lecture Reference:
+  - Lecture 12, Slide 3: λP_ω_ has (□, □) and (*, □)
+-/
+inductive Kind : Nat → Type where
+  | star   {n : Nat} : Kind n
+  | karrow {n : Nat} (k₁ k₂ : Kind n) : Kind n
+  | pi     {n : Nat} (dom : Kind n) (cod : Kind (n + 1)) : Kind n
+  deriving Repr
+
+/--
+  2. Types / Type Constructors in λP_ω_:
+  Parameterized by type variable scope `k : Nat` and term variable scope `n : Nat`.
+  - `tvar`: type constructor variable `i : Fin k`
+  - `pi`: dependent product over terms `Π (x : Ty k n), Ty k (n + 1)`
+  - `lam`: type operator abstraction `λ (X : Kind n). body` (types depending on types)
+  - `app`: type operator application `F G`
+  - `termApp`: type family application to a term variable `F t` (types depending on terms)
+
+  Lecture Reference:
+  - Lecture 12, Slide 3 & 10: λP_ω_ features both type operators and dependent types
+-/
+inductive Ty : Nat → Nat → Type where
+  | tvar    {k n : Nat} (i : Fin k) : Ty k n
+  | pi      {k n : Nat} (dom : Ty k n) (cod : Ty k (n + 1)) : Ty k n
+  | lam     {k n : Nat} (K : Kind n) (body : Ty (k + 1) n) : Ty k n
+  | app     {k n : Nat} (f arg : Ty k n) : Ty k n
+  | termApp {k n : Nat} (F : Fin k) (t : Fin n) : Ty k n
+  deriving Repr
+
+/--
+  3. Terms in λP_ω_:
+  Terms depend only on terms (no type abstraction `tabs`, since (□, *) is absent in λP_ω_).
+  Parameterized by type scope `k` and term scope `n`.
+
+  Lecture Reference:
+  - Lecture 12, Slide 3: Terms depending on terms only (no polymorphism)
+-/
+inductive Term : Nat → Nat → Type where
+  | var {k n : Nat} (i : Fin n) : Term k n
+  | lam {k n : Nat} (dom : Ty k n) (body : Term k (n + 1)) : Term k n
+  | app {k n : Nat} (f arg : Term k n) : Term k n
+  deriving Repr
+
+/-- Identity type operator in λP_ω_: `λ (X : *). X` -/
+def idTypeOp {k n : Nat} : Ty k n :=
+  Ty.lam Kind.star (Ty.tvar ⟨0, Nat.succ_pos k⟩)
+
+end LambdaCube.LambdaPOmega

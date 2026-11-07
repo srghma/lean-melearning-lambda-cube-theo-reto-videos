@@ -1,0 +1,69 @@
+/-
+  Toy grammar for System λP2 (Polymorphic Dependent Types).
+  Axes supported:
+  - (*, *): terms depending on terms
+  - (□, *): terms depending on types (polymorphic abstraction ΛX. t and type application)
+  - (*, □): types depending on terms (dependent products Πx:A. B and type families over terms)
+
+  Lecture references:
+  - Lecture 12: "The Lambda Cube and λC (6)",
+    Slide 2: The λ-Cube diagram (vertex λP2)
+    Slide 3: Table of Dependencies (λP2 : (*, *), (□, *), (*, □))
+    Slide 10: Summary table of the Lambda-Cube
+-/
+
+import LambdaCube.Common.Syntax
+import LambdaCube.Common.Substitution
+import LambdaCube.Common.Context
+
+set_option genSizeOf false
+
+namespace LambdaCube.LambdaTwoP
+
+/--
+  1. Types in λP2:
+  Types are parameterized by type variable scope `k : Nat` and term variable scope `n : Nat`.
+  - `tvar`: type variable `i : Fin k`
+  - `pi`: dependent product over terms `Π (x : Ty k n), Ty k (n + 1)` (from λP)
+  - `forall_`: polymorphic product over types `∀ (X : *), Ty (k + 1) n` (from λ2)
+  - `famApp`: type family application to a term variable
+
+  Lecture Reference:
+  - Lecture 12, Slide 3: λP2 combines terms-depending-on-types and types-depending-on-terms
+-/
+inductive Ty : Nat → Nat → Type where
+  | tvar   {k n : Nat} (i : Fin k) : Ty k n
+  | pi     {k n : Nat} (dom : Ty k n) (cod : Ty k (n + 1)) : Ty k n
+  | forall_{k n : Nat} (body : Ty (k + 1) n) : Ty k n
+  | famApp {k n : Nat} (F : Fin k) (arg : Fin n) : Ty k n
+  deriving Repr
+
+/--
+  2. Terms in λP2:
+  Parameterized by type variable scope `k : Nat` and term variable scope `n : Nat`.
+  - `var`: term variable `i : Fin n`
+  - `lam`: term abstraction `λ (x : Ty k n). body`
+  - `app`: term application `f arg`
+  - `tabs`: type abstraction `Λ (X : *). body` (from λ2)
+  - `tapp`: type application `t [S]` (from λ2)
+
+  Lecture Reference:
+  - Lecture 12, Slide 3 & 10: λP2 terms
+-/
+inductive Term : Nat → Nat → Type where
+  | var  {k n : Nat} (i : Fin n) : Term k n
+  | lam  {k n : Nat} (dom : Ty k n) (body : Term k (n + 1)) : Term k n
+  | app  {k n : Nat} (f arg : Term k n) : Term k n
+  | tabs {k n : Nat} (body : Term (k + 1) n) : Term k n
+  | tapp {k n : Nat} (f : Term k n) (argTy : Ty k n) : Term k n
+  deriving Repr
+
+/-- Polymorphic identity function in λP2: `Λ X. λ x:X. x` -/
+def polyId {k n : Nat} : Term k n :=
+  Term.tabs (
+    Term.lam (Ty.tvar ⟨0, Nat.succ_pos k⟩) (
+      Term.var ⟨0, Nat.succ_pos n⟩
+    )
+  )
+
+end LambdaCube.LambdaTwoP

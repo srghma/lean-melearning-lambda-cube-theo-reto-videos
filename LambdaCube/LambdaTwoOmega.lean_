@@ -1,0 +1,86 @@
+/-
+  Toy grammar for System λ2ω / λω (Higher-Order Polymorphic Lambda Calculus / System F_ω).
+  Axes supported:
+  - (*, *): terms depending on terms
+  - (□, *): terms depending on types (polymorphism from λ2)
+  - (□, □): types depending on types (higher-order type constructors from λ_ω_)
+
+  Lecture references:
+  - Lecture 10: "The Extension λ_ω_ (Lambda Weak Omega)",
+    Slide 19: The Higher-Order Polymorphic Lambda Calculus λω
+  - Lecture 12: "The Lambda Cube and λC (6)",
+    Slide 2: The λ-Cube diagram (vertex λω)
+    Slide 3: Table of Dependencies (λω : (*, *), (□, *), (□, □))
+    Slide 10: The Lambda-Cube systems summary
+-/
+
+import LambdaCube.Common.Syntax
+import LambdaCube.Common.Substitution
+import LambdaCube.Common.Context
+
+set_option genSizeOf false
+
+namespace LambdaCube.LambdaTwoOmega
+
+/--
+  1. Kinds in λ2ω (from λ_ω_):
+  - `star`: the sort `*`
+  - `arrow`: `K₁ → K₂` for higher-order type operators
+
+  Lecture Reference:
+  - Lecture 10, Slide 4 & 19: Kinds K = * | (K → K)
+-/
+inductive Kind : Type where
+  | star : Kind
+  | arrow : Kind → Kind → Kind
+  deriving Repr, DecidableEq
+
+/--
+  2. Type Constructors / Types in λ2ω:
+  Parameterized by constructor variable count `k : Nat`.
+  - `tvar`: constructor variable `i : Fin k`
+  - `arrow`: function type `S → T`
+  - `forall_`: universal quantification over constructors of kind `K`: `∀ (X : K). body`
+  - `lam`: type constructor abstraction `λ (X : K). body`
+  - `app`: type constructor application `F arg`
+
+  Lecture Reference:
+  - Lecture 10, Slide 19: Higher-Order Polymorphic types and constructors
+-/
+inductive Ty : Nat → Type where
+  | tvar    {k : Nat} (i : Fin k) : Ty k
+  | arrow   {k : Nat} (s t : Ty k) : Ty k
+  | forall_ {k : Nat} (K : Kind) (body : Ty (k + 1)) : Ty k
+  | lam     {k : Nat} (K : Kind) (body : Ty (k + 1)) : Ty k
+  | app     {k : Nat} (f arg : Ty k) : Ty k
+  deriving Repr
+
+/--
+  3. Terms in λ2ω:
+  Parameterized by type scope `k : Nat` and term variable scope `n : Nat`.
+  - `var`: term variable `i : Fin n`
+  - `lam`: term abstraction `λ (x : Ty k). body`
+  - `app`: term application `f arg`
+  - `tabs`: type abstraction over constructor of kind `K`: `Λ (X : K). body`
+  - `tapp`: type application `t [argTy]`
+
+  Lecture Reference:
+  - Lecture 10, Slide 19; Lecture 12, Slide 3
+-/
+inductive Term : Nat → Nat → Type where
+  | var  {k n : Nat} (i : Fin n) : Term k n
+  | lam  {k n : Nat} (dom : Ty k) (body : Term k (n + 1)) : Term k n
+  | app  {k n : Nat} (f arg : Term k n) : Term k n
+  | tabs {k n : Nat} (K : Kind) (body : Term (k + 1) n) : Term k n
+  | tapp {k n : Nat} (f : Term k n) (argTy : Ty k) : Term k n
+  deriving Repr
+
+/-- Polymorphic identity function over types: `Λ (X : *). λ (x : X). x` -/
+def polyId {k n : Nat} : Term k n :=
+  Term.tabs Kind.star (
+    Term.lam (Ty.tvar ⟨0, Nat.succ_pos k⟩) (
+      Term.var ⟨0, Nat.succ_pos n⟩
+    )
+  )
+
+end LambdaCube.LambdaTwoOmega

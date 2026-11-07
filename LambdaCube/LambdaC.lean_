@@ -1,0 +1,114 @@
+/-
+  Toy grammar for System λC (Calculus of Constructions / λP2_ω_).
+  The apex of the Lambda Cube unifying terms, types, and kinds into a single grammar.
+  All 4 axes of dependency are supported:
+  - (*, *): terms depending on terms
+  - (□, *): terms depending on types
+  - (□, □): types depending on types
+  - (*, □): types depending on terms
+
+  Lecture references:
+  - Lecture 12: "The Lambda Cube and λC (6)",
+    Slide 1: Title "The Lambda Cube and λC"
+    Slide 2: The λ-Cube diagram (top vertex λC)
+    Slide 3: Table of Dependencies (all 4 pairs supported)
+    Slide 4: The Formation Rule - Definition of λC (Unified syntax & general form rule)
+    Slide 6: Derivation Rules for λC:
+      (sort)  ∅ ⊢ * : □
+      (var)   (Γ ⊢ A : s) / (Γ, x : A ⊢ x : A)
+      (weak)  (Γ ⊢ A : B    Γ ⊢ C : s) / (Γ, x : C ⊢ A : B)
+      (form)  (Γ ⊢ A : s₁   Γ, x : A ⊢ B : s₂) / (Γ ⊢ Π x : A. B : s₂)
+      (appl)  (Γ ⊢ M : Π x : A. B    Γ ⊢ N : A) / (Γ ⊢ M N : B[x := N])
+      (abst)  (Γ, x : A ⊢ M : B    Γ ⊢ Π x : A. B : s) / (Γ ⊢ λ x : A. M : Π x : A. B)
+      (conv)  (Γ ⊢ A : B    Γ ⊢ B' : s) / (Γ ⊢ A : B') if B =_β B'
+    Slide 10: Summary table
+  - Lecture 13: "Propositions as Types (7)"
+-/
+
+import LambdaCube.Common.Syntax
+import LambdaCube.Common.Substitution
+import LambdaCube.Common.Context
+
+set_option genSizeOf false
+
+namespace LambdaCube.LambdaC
+
+/--
+  In λC, because types can depend on terms and terms on types, syntax is unified into
+  pseudo-terms parameterized by variable scope `n : Nat` with de Bruijn variables `Fin n`.
+  - `var`: de Bruijn variable `i : Fin n`
+  - `sort`: universe constants `*` and `□`
+  - `pi`: dependent product `Π (x : A). B` (subsumes simple arrows, polymorphic types, type families, and kinds)
+  - `lam`: abstraction `λ (x : A). body` (subsumes term functions, type abstractions, and type operators)
+  - `app`: application `f arg` (subsumes term application, type application, and constructor application)
+
+  Lecture Reference:
+  - Lecture 12, Slide 4 & 6: Unified syntax of λC
+-/
+inductive Term : Nat → Type where
+  | var  {n : Nat} (i : Fin n) : Term n
+  | sort {n : Nat} (s : Univ) : Term n
+  | pi   {n : Nat} (A : Term n) (B : Term (n + 1)) : Term n
+  | lam  {n : Nat} (A : Term n) (b : Term (n + 1)) : Term n
+  | app  {n : Nat} (M N : Term n) : Term n
+  deriving Repr
+
+/-- Syntactic size of a term for termination proofs. -/
+def termSize : {n : Nat} → Term n → Nat
+  | _, .var _ => 1
+  | _, .sort _ => 1
+  | _, .pi A B => 1 + termSize A + termSize B
+  | _, .lam A b => 1 + termSize A + termSize b
+  | _, .app M N => 1 + termSize M + termSize N
+
+/-- Lifting operation for λC pseudo-terms. -/
+def lift {n : Nat} (cutoff : Nat) : (t : Term n) → Term (n + 1)
+  | .var i => .var (liftIndex cutoff i)
+  | .sort s => .sort s
+  | .pi A B => .pi (lift cutoff A) (lift (cutoff + 1) B)
+  | .lam A b => .lam (lift cutoff A) (lift (cutoff + 1) b)
+  | .app M N => .app (lift cutoff M) (lift cutoff N)
+termination_by t => termSize t
+decreasing_by
+  all_goals
+    dsimp [termSize]
+    omega
+
+/-- Substitution operation for λC pseudo-terms: `t[depth := byTerm]`. -/
+def subst {n : Nat} (depth : Nat) (byTerm : Term n) : (t : Term (n + 1)) → Term n
+  | .var i =>
+    match substIndex depth i with
+    | .hit => byTerm
+    | .below j => .var j
+    | .above j => .var j
+  | .sort s => .sort s
+  | .pi A B => .pi (subst depth byTerm A) (subst (depth + 1) (lift 0 byTerm) B)
+  | .lam A b => .lam (subst depth byTerm A) (subst (depth + 1) (lift 0 byTerm) b)
+  | .app M N => .app (subst depth byTerm M) (subst depth byTerm N)
+termination_by t => termSize t
+decreasing_by
+  all_goals
+    dsimp [termSize]
+    omega
+
+/-- Non-dependent arrow type abbreviation in λC: `A → B`. -/
+def arrow {n : Nat} (A B : Term n) : Term n :=
+  Term.pi A (lift 0 B)
+
+/-- Polymorphic identity function in λC: `λ (α : *). λ (x : α). x` -/
+def polyId {n : Nat} : Term n :=
+  Term.lam (Term.sort Univ.star) (
+    Term.lam (Term.var ⟨0, Nat.succ_pos n⟩) (
+      Term.var ⟨0, Nat.succ_pos (n + 1)⟩
+    )
+  )
+
+/-- Type of polymorphic identity in λC: `Π (α : *). α → α` -/
+def polyIdType {n : Nat} : Term n :=
+  Term.pi (Term.sort Univ.star) (
+    Term.pi (Term.var ⟨0, Nat.succ_pos n⟩) (
+      Term.var ⟨1, by omega⟩
+    )
+  )
+
+end LambdaCube.LambdaC

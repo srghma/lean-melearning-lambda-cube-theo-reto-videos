@@ -16,15 +16,19 @@
   - Lecture 13: "Propositions as Types (7)"
 -/
 
-import LambdaCube.Common.Syntax
-import LambdaCube.Common.Substitution
-import LambdaCube.Common.Context
-import LambdaCube.Common.Typing
+-- import LambdaCube.Common.Syntax
+-- import LambdaCube.Common.Substitution
+-- import LambdaCube.Common.Context
+-- import LambdaCube.Common.Typing
+-- import LambdaCube.LambdaOmegaWeakWeak
+import LambdaCube.LambdaOmegaWeakWithoutConv
+-- import LambdaCube.LambdaOmegaWeakWeak2
+import LambdaCube.LambdaOmegaWeak
 import LambdaCube.LambdaArrow
 import LambdaCube.LambdaTwo
-import LambdaCube.LambdaOmega
-import LambdaCube.LambdaP
-import LambdaCube.LambdaTwoP
-import LambdaCube.LambdaTwoOmega
-import LambdaCube.LambdaPOmega
-import LambdaCube.LambdaC
+-- import LambdaCube.LambdaOmegaWeak
+-- import LambdaCube.LambdaP
+-- import LambdaCube.LambdaTwoP
+-- import LambdaCube.LambdaTwoOmega
+-- import LambdaCube.LambdaPOmega
+-- import LambdaCube.LambdaC
